@@ -22,20 +22,48 @@ from app.api.schemas import (
 )
 from app.db.database import get_db
 from app.db.models import WorkerStage, WorkerStatus
+from app.services.geocode import geocode_pincode
 
 router = APIRouter(prefix="/workers", tags=["workers"])
 
 
 def _create_worker_record(payload: WorkerStageCreate) -> WorkerStage:
-    """Map validated Pydantic model → ORM instance."""
+    """Map validated Pydantic model → ORM instance.
+
+    If latitude/longitude or state are not supplied but area_code (PIN/ZIP)
+    is present, we attempt an offline geocode lookup via pgeocode.  State
+    codes are always stored as ISO 3166-2:IN (e.g. 'KA', 'MH').
+    """
+    lat = payload.latitude
+    lon = payload.longitude
+    s_name = payload.state_name
+    s_code = payload.state_code
+
+    # Auto-fill from PIN code when fields are missing
+    if payload.area_code and (lat is None or lon is None or not s_name or not s_code):
+        geo = geocode_pincode(payload.area_code)
+        if geo:
+            lat = lat if lat is not None else geo.latitude
+            lon = lon if lon is not None else geo.longitude
+            s_name = s_name or geo.state_name
+            s_code = s_code or geo.state_code
+
     return WorkerStage(
         name=payload.name,
         aadhar_hash=payload.aadhar_hash.lower(),  # normalise hex to lowercase
         district=payload.district,
         taluk=payload.taluk,
         city_village=payload.city_village,
-        latitude=payload.latitude,
-        longitude=payload.longitude,
+        state_name=s_name,
+        state_code=s_code,
+        area_code=payload.area_code,
+        door=payload.door,
+        building=payload.building,
+        street=payload.street,
+        locality=payload.locality,
+        ward=payload.ward,
+        latitude=lat,
+        longitude=lon,
         skill_category=payload.skill_category,
         iti_nsqf_level=payload.iti_nsqf_level,
         highest_qualification=payload.highest_qualification,

@@ -162,7 +162,6 @@ After successful verification, the following is written to `worker_stage.verific
   "aadhaar_txn_id": "TXN-20260404172759-0b6681a3",
   "aadhaar_verify": "Verify via DigiLocker",
   "phone_verified": false,
-  "address_verified": false,
   "phone_conversation": [
     { "sender": "agent", "message": "Hello Abhijit! Welcome to ONEST...", "timestamp": "..." },
     { "sender": "agent", "message": "To verify your identity, please authorize via DigiLocker.", "timestamp": "..." },
