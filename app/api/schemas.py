@@ -65,7 +65,7 @@ class WorkerStageCreate(BaseModel):
     # Verification — flexible JSON
     verification_status: Optional[dict[str, Any]] = Field(
         default_factory=dict,
-        examples=[{"aadhaar_verified": True, "phone_verified": True}],
+        examples=[{"aadhaar_verified": True, "phone_verified": False, "address_verified": False, "phone_conversation": []}],
     )
 
     # Contact & experience

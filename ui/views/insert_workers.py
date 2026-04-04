@@ -162,6 +162,7 @@ def render():
                         "aadhaar_verified": aadhaar_verified,
                         "phone_verified": phone_verified,
                         "address_verified": address_verified,
+                        "phone_conversation": [],
                     },
                     "source_channel": source_channel,
                 }

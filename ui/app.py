@@ -17,6 +17,7 @@ pages = {
     "🏠 Home": "home",
     "➕ Insert Workers": "insert",
     "🔍 Search Workers": "search",
+    "� Chat Simulator": "chat",
 }
 
 selection = st.sidebar.radio("Navigate", list(pages.keys()))
@@ -33,6 +34,7 @@ if page == "home":
         Use the sidebar to navigate:
         - **Insert Workers** — Add workers manually or upload CSV/Excel
         - **Search Workers** — Query and filter the worker stage table
+        - **Chat Simulator** — Phone verification chat with workers
 
         ---
         **Backend:** FastAPI on `http://localhost:8000`
@@ -48,4 +50,9 @@ elif page == "insert":
 # ── Search Workers ──
 elif page == "search":
     from ui.views.search_workers import render
+    render()
+
+# ── Chat Simulator ──
+elif page == "chat":
+    from ui.views.chat_simulator import render
     render()

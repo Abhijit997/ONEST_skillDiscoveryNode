@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.workers import router as workers_router
+from app.api.chat import router as chat_router
 from app.db.database import init_db
 
 
@@ -26,6 +27,7 @@ app = FastAPI(
 
 # ── Routers ──
 app.include_router(workers_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
 
 
 # ── Health ──
