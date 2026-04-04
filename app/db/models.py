@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -88,6 +89,7 @@ class WorkerStage(Base):
 
     worker_id = Column(String(36), primary_key=True, default=_generate_uuid)
     name = Column(String(255), nullable=False)
+    dob = Column(Date, nullable=True)  # Date of birth
     aadhar_hash = Column(String(64), nullable=False, index=True)  # SHA-256 hex
 
     # Location

@@ -3,6 +3,7 @@ Insert Workers page — manual form entry + CSV upload (TODO).
 """
 
 import hashlib
+from datetime import date
 
 import requests
 import streamlit as st
@@ -52,10 +53,18 @@ def render():
                     help="Will be SHA-256 hashed before sending. Raw number is never stored.",
                 )
 
-            col3, col4 = st.columns(2)
-            with col3:
+            col_dob, col_phone, col_exp = st.columns(3)
+            with col_dob:
+                dob = st.date_input(
+                    "Date of Birth",
+                    value=None,
+                    min_value=date(1940, 1, 1),
+                    max_value=date.today(),
+                    help="Worker's date of birth (optional)",
+                )
+            with col_phone:
                 phone = st.text_input("Phone *", placeholder="+919876543210")
-            with col4:
+            with col_exp:
                 experience_years = st.number_input(
                     "Experience (years)", min_value=0.0, max_value=50.0, value=0.0, step=0.5
                 )
@@ -145,6 +154,7 @@ def render():
             else:
                 payload = {
                     "name": name.strip(),
+                    "dob": dob.isoformat() if dob else None,
                     "aadhar_hash": _hash_aadhar(aadhar_raw),
                     "phone": phone.strip(),
                     "experience_years": experience_years if experience_years > 0 else None,

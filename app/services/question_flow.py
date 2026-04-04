@@ -22,6 +22,13 @@ Examples of future conditions:
 
 QUESTIONS: list[dict] = [
     {
+        "id": "aadhaar_verify",
+        "text": "To verify your identity, please authorize via DigiLocker.",
+        "options": ["Verify via DigiLocker"],
+        "ui_type": "buttons",
+        "condition": None,
+    },
+    {
         "id": "available_in_14_days",
         "text": "Are you available to start work in the next 14 days?",
         "options": ["Yes", "No"],

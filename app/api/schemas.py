@@ -2,7 +2,7 @@
 Pydantic request / response schemas for the worker_stage API.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -37,6 +37,7 @@ class WorkerStageCreate(BaseModel):
     """Payload for inserting a new worker_stage record."""
 
     name: str = Field(..., min_length=1, max_length=255, examples=["Ramesh Kumar"])
+    dob: Optional[date] = Field(None, description="Date of birth (YYYY-MM-DD)", examples=["1990-01-15"])
     aadhar_hash: str = Field(
         ...,
         min_length=64,
@@ -118,6 +119,7 @@ class WorkerStageOut(BaseModel):
 
     worker_id: str
     name: str
+    dob: Optional[date] = None
     aadhar_hash: str
     district: str
     taluk: Optional[str] = None

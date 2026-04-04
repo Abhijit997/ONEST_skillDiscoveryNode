@@ -264,7 +264,7 @@ def render():
                         f"{'flex-end' if side == 'agent' else 'flex-start'};\">"
                         f'<div class="chat-bubble {side}">'
                         f'<div class="sender">{who}</div>'
-                        f"{_esc(m['message'])}"
+                        f"{_esc(m['message']).replace(chr(10), '<br>')}"
                         f'<div class="time">{ts}</div>'
                         f"</div></div>"
                     )

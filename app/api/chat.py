@@ -23,6 +23,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.db.database import get_db
 from app.db.models import WorkerStage, WorkerStatus
 from app.services.question_flow import get_next_question, is_valid_answer
+from app.services.aadhaar_service import MockDigiLockerService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -270,11 +271,95 @@ def answer_question(req: AnswerRequest, db: Session = Depends(get_db)):
         opt for opt in nq["options"] if opt.lower() == req.answer.strip().lower()
     )
 
+    conversation = verification.get("phone_conversation", [])
+
+    # ── Special handling: Aadhaar DigiLocker verification ──
+    if nq["id"] == "aadhaar_verify":
+        # Worker clicked "Verify via DigiLocker" — run the full mock flow
+        conversation.append({
+            "sender": "worker",
+            "message": normalised,
+            "timestamp": _now_iso(),
+        })
+        conversation.append({
+            "sender": "agent",
+            "message": "Connecting to DigiLocker...",
+            "timestamp": _now_iso(),
+        })
+
+        # 1) Initiate
+        auth = MockDigiLockerService.initiate(
+            worker_id=req.worker_id,
+            aadhar_hash=worker.aadhar_hash,
+        )
+        # 2) Simulate worker clicking "Allow"
+        MockDigiLockerService.complete(auth.transaction_id)
+        # 3) Fetch e-KYC
+        kyc = MockDigiLockerService.fetch_ekyc(
+            transaction_id=auth.transaction_id,
+            name=worker.name,
+            dob=worker.dob.isoformat() if worker.dob else None,
+            district=worker.district,
+        )
+
+        if kyc and kyc.verified:
+            verification["aadhaar_verified"] = True
+            verification["aadhaar_txn_id"] = auth.transaction_id
+            dob_str = f"\nDOB: {kyc.dob}" if kyc.dob else ""
+            conversation.append({
+                "sender": "agent",
+                "message": (
+                    f"\u2705 Aadhaar verified via DigiLocker!\n"
+                    f"Name: {kyc.name}{dob_str}\n"
+                    f"District: {kyc.district or 'N/A'}"
+                ),
+                "timestamp": _now_iso(),
+            })
+        else:
+            conversation.append({
+                "sender": "agent",
+                "message": "\u274c DigiLocker verification failed. Please try again later.",
+                "timestamp": _now_iso(),
+            })
+
+        # Mark question as answered
+        verification["aadhaar_verify"] = normalised
+
+        # Auto-send next question
+        next_nq = get_next_question(verification)
+        nq_info = _build_next_question(verification)
+        if next_nq is not None:
+            conversation.append({
+                "sender": "agent",
+                "message": next_nq["text"],
+                "timestamp": _now_iso(),
+            })
+        else:
+            verification["phone_verified"] = True
+            conversation.append({
+                "sender": "agent",
+                "message": "\u2705 Phone verification complete. Thank you!",
+                "timestamp": _now_iso(),
+            })
+
+        verification["phone_conversation"] = conversation
+        _save_verification(worker, verification, db)
+
+        return AnswerResponse(
+            worker_id=req.worker_id,
+            question_id=req.question_id,
+            answer=normalised,
+            accepted=True,
+            messages=conversation,
+            next_question=nq_info if next_nq else NextQuestionInfo(all_answered=True),
+        )
+
+    # ── Standard question handling ──
+
     # Store the answer as a top-level key
     verification[req.question_id] = normalised
 
     # Append worker answer to conversation
-    conversation = verification.get("phone_conversation", [])
     conversation.append({
         "sender": "worker",
         "message": normalised,
