@@ -25,7 +25,15 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.db.models import BecknOrder, XInputForm
+from app.db.models import FulfillmentStatusCode
+from app.services.order_service import get_order_by_id
+from app.services.form_service import (
+    get_form_by_order_step,
+    get_forms_by_order,
+    count_submitted_forms,
+    update_form as svc_update_form,
+)
+from app.services.order_service import update_order as svc_update_order
 
 log = logging.getLogger(__name__)
 
@@ -61,15 +69,11 @@ class OrderFormStatus(BaseModel):
 @router.get("/form/{order_id}/{step}", response_class=HTMLResponse)
 async def get_form(order_id: str, step: int, db: Session = Depends(get_db)):
     """Return a simple HTML form for the given step of the given order."""
-    db_order = db.query(BecknOrder).filter_by(order_id=order_id).first()
+    db_order = get_order_by_id(db, order_id)
     if not db_order:
         raise HTTPException(404, "Order not found")
 
-    form_row = (
-        db.query(XInputForm)
-        .filter_by(order_id=order_id, step_index=step)
-        .first()
-    )
+    form_row = get_form_by_order_step(db, order_id, step)
     if not form_row:
         raise HTTPException(404, f"Form step {step} not found for order {order_id}")
 
@@ -149,40 +153,31 @@ document.getElementById('xform').addEventListener('submit', async e => {{
 @router.post("/form/{order_id}/{step}/submit")
 async def submit_form(order_id: str, step: int, body: FormSubmission, db: Session = Depends(get_db)):
     """Accept form data for a given step and mark it as submitted."""
-    db_order = db.query(BecknOrder).filter_by(order_id=order_id).first()
+    db_order = get_order_by_id(db, order_id)
     if not db_order:
         raise HTTPException(404, "Order not found")
 
-    form_row = (
-        db.query(XInputForm)
-        .filter_by(order_id=order_id, step_index=step)
-        .first()
-    )
+    form_row = get_form_by_order_step(db, order_id, step)
     if not form_row:
         raise HTTPException(404, f"Form step {step} not found")
 
     if form_row.submitted:
         raise HTTPException(409, f"Step {step} already submitted")
 
-    # Save data
-    form_row.form_data = body.data
-    form_row.submitted = 1
-    db.commit()
+    # Save data via service layer
+    svc_update_form(db, form_row, form_data=body.data, submitted=1)
 
     # Update order xinput_submitted count
-    submitted_count = (
-        db.query(XInputForm)
-        .filter_by(order_id=order_id, submitted=1)
-        .count()
-    )
-    db_order.xinput_submitted = submitted_count
+    submitted_count = count_submitted_forms(db, order_id)
+
+    # Build order updates
+    order_updates: dict = {"xinput_submitted": submitted_count}
 
     # If all forms submitted, advance fulfillment status
     if submitted_count >= db_order.xinput_required:
-        from app.db.models import FulfillmentStatusCode
-        db_order.fulfillment_status = FulfillmentStatusCode.APPLICATION_FILLED
+        order_updates["fulfillment_status"] = FulfillmentStatusCode.APPLICATION_FILLED
 
-    db.commit()
+    svc_update_order(db, db_order, **order_updates)
 
     log.info(
         "XINPUT_SUBMIT order=%s step=%d submitted=%d/%d",
@@ -204,16 +199,11 @@ async def submit_form(order_id: str, step: int, body: FormSubmission, db: Sessio
 @router.get("/status/{order_id}", response_model=OrderFormStatus)
 async def form_status(order_id: str, db: Session = Depends(get_db)):
     """Return the completion status of all xInput form steps for an order."""
-    db_order = db.query(BecknOrder).filter_by(order_id=order_id).first()
+    db_order = get_order_by_id(db, order_id)
     if not db_order:
         raise HTTPException(404, "Order not found")
 
-    forms = (
-        db.query(XInputForm)
-        .filter_by(order_id=order_id)
-        .order_by(XInputForm.step_index)
-        .all()
-    )
+    forms = get_forms_by_order(db, order_id)
 
     steps = [
         FormStatusOut(

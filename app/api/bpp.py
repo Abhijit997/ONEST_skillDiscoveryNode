@@ -69,9 +69,17 @@ from app.db.models import (
     FulfillmentType,
     OrderState,
     WorkerStage,
-    XInputForm as XInputFormModel,
 )
 from app.services.beckn_callback import post_callback
+from app.services.order_service import (
+    create_order as svc_create_order,
+    find_order,
+    get_order_by_txn,
+    update_order as svc_update_order,
+)
+from app.services.form_service import (
+    create_form as svc_create_form,
+)
 
 log = logging.getLogger(__name__)
 
@@ -314,8 +322,9 @@ def _handle_select(body: SelectRequest, db: Session):
     item_id = order_msg.items[0].id if order_msg.items else None
     provider_id = order_msg.provider.id if order_msg.provider else BPP_ID
 
-    # Create draft order
-    db_order = BecknOrder(
+    # Create draft order via service layer
+    db_order = svc_create_order(
+        db,
         transaction_id=body.context.transaction_id,
         message_id=body.context.message_id,
         bap_id=body.context.bap_id or "",
@@ -329,20 +338,16 @@ def _handle_select(body: SelectRequest, db: Session):
         xinput_required=XINPUT_TOTAL_STEPS,
         xinput_submitted=0,
     )
-    db.add(db_order)
-    db.commit()
-    db.refresh(db_order)
 
-    # Create xInput form stubs
+    # Create xInput form stubs via service layer
     for i in range(XINPUT_TOTAL_STEPS):
-        form = XInputFormModel(
+        svc_create_form(
+            db,
             order_id=db_order.order_id,
             transaction_id=body.context.transaction_id,
             step_index=i,
             heading=XINPUT_HEADINGS[i] if i < len(XINPUT_HEADINGS) else f"Step {i}",
         )
-        db.add(form)
-    db.commit()
 
     order_payload = _build_order_payload(db_order)
 
@@ -379,29 +384,28 @@ async def bpp_select(body: SelectRequest, bg: BackgroundTasks, db: Session = Dep
 def _handle_init(body: InitRequest, db: Session):
     """Background: populate customer/billing on order, POST on_init."""
     txn_id = body.context.transaction_id
-    db_order = db.query(BecknOrder).filter_by(transaction_id=txn_id).first()
+    db_order = get_order_by_txn(db, txn_id)
     if not db_order:
         log.warning("INIT: order not found for txn=%s", txn_id)
         return
 
     order_msg = body.message.order
 
-    # Store customer info
+    # Build update kwargs
+    updates: dict = {"fulfillment_status": FulfillmentStatusCode.APPLICATION_STARTED}
+
     if order_msg.fulfillments:
         ff = order_msg.fulfillments[0]
         if ff.customer:
             if ff.customer.person:
-                db_order.customer_person = ff.customer.person.model_dump(mode="json", exclude_none=True)
+                updates["customer_person"] = ff.customer.person.model_dump(mode="json", exclude_none=True)
             if ff.customer.contact:
-                db_order.customer_contact = ff.customer.contact.model_dump(mode="json", exclude_none=True)
+                updates["customer_contact"] = ff.customer.contact.model_dump(mode="json", exclude_none=True)
 
-    # Store billing
     if order_msg.billing:
-        db_order.billing = order_msg.billing.model_dump(mode="json", exclude_none=True)
+        updates["billing"] = order_msg.billing.model_dump(mode="json", exclude_none=True)
 
-    db_order.fulfillment_status = FulfillmentStatusCode.APPLICATION_STARTED
-    db.commit()
-    db.refresh(db_order)
+    db_order = svc_update_order(db, db_order, **updates)
 
     order_payload = _build_order_payload(db_order)
 
@@ -419,7 +423,7 @@ async def bpp_init(body: InitRequest, bg: BackgroundTasks, db: Session = Depends
     """BAP → BPP init. Returns ACK, posts on_init with xInput forms."""
     log.info("BPP_INIT txn=%s", body.context.transaction_id)
     txn_id = body.context.transaction_id
-    db_order = db.query(BecknOrder).filter_by(transaction_id=txn_id).first()
+    db_order = get_order_by_txn(db, txn_id)
     if not db_order:
         return nack_response("40002", "Order not found for this transaction")
 
@@ -435,7 +439,7 @@ async def bpp_init(body: InitRequest, bg: BackgroundTasks, db: Session = Depends
 def _handle_confirm(body: ConfirmRequest, db: Session):
     """Background: activate order and POST on_confirm."""
     txn_id = body.context.transaction_id
-    db_order = db.query(BecknOrder).filter_by(transaction_id=txn_id).first()
+    db_order = get_order_by_txn(db, txn_id)
     if not db_order:
         log.warning("CONFIRM: order not found for txn=%s", txn_id)
         return
@@ -448,10 +452,11 @@ def _handle_confirm(body: ConfirmRequest, db: Session):
         )
         # Still proceed but keep APPLICATION_FILLED status
 
-    db_order.state = OrderState.ACTIVE
-    db_order.fulfillment_status = FulfillmentStatusCode.APPLICATION_FILLED
-    db.commit()
-    db.refresh(db_order)
+    db_order = svc_update_order(
+        db, db_order,
+        state=OrderState.ACTIVE,
+        fulfillment_status=FulfillmentStatusCode.APPLICATION_FILLED,
+    )
 
     order_payload = _build_order_payload(db_order)
 
@@ -469,7 +474,7 @@ async def bpp_confirm(body: ConfirmRequest, bg: BackgroundTasks, db: Session = D
     """BAP → BPP confirm. Returns ACK, activates order, posts on_confirm."""
     log.info("BPP_CONFIRM txn=%s", body.context.transaction_id)
     txn_id = body.context.transaction_id
-    db_order = db.query(BecknOrder).filter_by(transaction_id=txn_id).first()
+    db_order = get_order_by_txn(db, txn_id)
     if not db_order:
         return nack_response("40002", "Order not found for this transaction")
 
@@ -488,10 +493,7 @@ def _handle_status(body: StatusRequest, db: Session):
 
     # Allow lookup by order_id passed in message.order.id
     order_id = body.message.order.id if body.message.order.id else None
-    if order_id:
-        db_order = db.query(BecknOrder).filter_by(order_id=order_id).first()
-    else:
-        db_order = db.query(BecknOrder).filter_by(transaction_id=txn_id).first()
+    db_order = find_order(db, order_id=order_id, transaction_id=txn_id)
 
     if not db_order:
         log.warning("STATUS: order not found for txn=%s", txn_id)
@@ -527,10 +529,7 @@ def _handle_update(body: UpdateRequest, db: Session):
     order_msg = body.message.order
 
     order_id = order_msg.id
-    if order_id:
-        db_order = db.query(BecknOrder).filter_by(order_id=order_id).first()
-    else:
-        db_order = db.query(BecknOrder).filter_by(transaction_id=txn_id).first()
+    db_order = find_order(db, order_id=order_id, transaction_id=txn_id)
 
     if not db_order:
         log.warning("UPDATE: order not found for txn=%s", txn_id)
@@ -540,22 +539,23 @@ def _handle_update(body: UpdateRequest, db: Session):
         log.warning("UPDATE: cannot update order in state %s", db_order.state)
         return
 
-    # Apply updates — customer, billing, fulfillment
+    # Build update kwargs
+    updates: dict = {}
     if order_msg.fulfillments:
         ff = order_msg.fulfillments[0]
         if ff.customer and ff.customer.person:
-            db_order.customer_person = ff.customer.person.model_dump(mode="json", exclude_none=True)
+            updates["customer_person"] = ff.customer.person.model_dump(mode="json", exclude_none=True)
         if ff.type:
             try:
-                db_order.fulfillment_type = FulfillmentType(ff.type)
+                updates["fulfillment_type"] = FulfillmentType(ff.type)
             except ValueError:
                 pass
 
     if order_msg.billing:
-        db_order.billing = order_msg.billing.model_dump(mode="json", exclude_none=True)
+        updates["billing"] = order_msg.billing.model_dump(mode="json", exclude_none=True)
 
-    db.commit()
-    db.refresh(db_order)
+    if updates:
+        db_order = svc_update_order(db, db_order, **updates)
 
     order_payload = _build_order_payload(db_order)
 
@@ -587,10 +587,7 @@ def _handle_cancel(body: CancelRequest, db: Session):
     order_msg = body.message.order
 
     order_id = order_msg.id
-    if order_id:
-        db_order = db.query(BecknOrder).filter_by(order_id=order_id).first()
-    else:
-        db_order = db.query(BecknOrder).filter_by(transaction_id=txn_id).first()
+    db_order = find_order(db, order_id=order_id, transaction_id=txn_id)
 
     if not db_order:
         log.warning("CANCEL: order not found for txn=%s", txn_id)
@@ -600,16 +597,17 @@ def _handle_cancel(body: CancelRequest, db: Session):
         log.warning("CANCEL: order already cancelled txn=%s", txn_id)
         return
 
-    # Record cancellation
-    db_order.state = OrderState.CANCELLED
-    db_order.fulfillment_status = FulfillmentStatusCode.CANCELLED
+    # Record cancellation via service layer
+    reason = "Cancelled by BAP"
     if order_msg.cancellation and order_msg.cancellation.reason:
-        db_order.cancellation_reason = order_msg.cancellation.reason.name or order_msg.cancellation.reason.code
-    else:
-        db_order.cancellation_reason = "Cancelled by BAP"
+        reason = order_msg.cancellation.reason.name or order_msg.cancellation.reason.code
 
-    db.commit()
-    db.refresh(db_order)
+    db_order = svc_update_order(
+        db, db_order,
+        state=OrderState.CANCELLED,
+        fulfillment_status=FulfillmentStatusCode.CANCELLED,
+        cancellation_reason=reason,
+    )
 
     order_payload = _build_order_payload(db_order)
     if order_msg.cancellation:

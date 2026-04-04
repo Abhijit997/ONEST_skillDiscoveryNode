@@ -1,5 +1,6 @@
 """
-Pydantic request / response schemas for the worker_stage API.
+Pydantic request / response schemas for the worker_stage, beckn_order,
+and xinput_form APIs.
 """
 
 from datetime import date, datetime
@@ -213,3 +214,191 @@ class DeleteResponse(BaseModel):
     dry_run: bool = Field(..., description="True = preview only, nothing was deleted")
     matched: int = Field(..., description="Number of records matching the filters")
     deleted: int = Field(0, description="Number of records actually deleted (0 if dry_run)")
+
+
+# ─── Allowed values for Beckn enums ──────────
+
+ORDER_STATES = ["DRAFT", "ACTIVE", "COMPLETE", "CANCELLED"]
+
+FULFILLMENT_STATUS_CODES = [
+    "APPLICATION-STARTED", "APPLICATION-FILLED", "UNDER-REVIEW",
+    "OFFER-EXTENDED", "ACCEPTED", "REJECTED", "CANCELLED",
+]
+
+
+# ─── BecknOrder schemas ──────────────────────
+
+
+class BecknOrderCreate(BaseModel):
+    """Payload for creating a new Beckn order."""
+
+    transaction_id: str = Field(..., max_length=100, examples=["txn-abc-123"])
+    message_id: Optional[str] = Field(None, max_length=100, examples=["msg-001"])
+    bap_id: str = Field(..., max_length=255, examples=["example-bap.io"])
+    bap_uri: str = Field(..., max_length=500, examples=["https://example-bap.io/api"])
+    worker_id: Optional[str] = Field(None, max_length=36, examples=["a1b2c3d4-..."])
+    item_id: Optional[str] = Field(None, max_length=255, examples=["ITEM-001"])
+    provider_id: Optional[str] = Field(None, max_length=255, examples=["PROV-001"])
+    state: str = Field("DRAFT", examples=["DRAFT"])
+    fulfillment_status: str = Field("APPLICATION-STARTED", examples=["APPLICATION-STARTED"])
+    fulfillment_type: str = Field("ONSITE", examples=["ONSITE"])
+    customer_person: Optional[dict[str, Any]] = Field(None, description="Applicant person info")
+    customer_contact: Optional[dict[str, Any]] = Field(None, description="Applicant contact info")
+    billing: Optional[dict[str, Any]] = Field(None, description="Billing details JSON")
+    xinput_required: int = Field(0, ge=0, examples=[2])
+    xinput_submitted: int = Field(0, ge=0, examples=[0])
+    cancellation_reason: Optional[str] = Field(None, examples=["Duplicate application"])
+
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v: str) -> str:
+        v_upper = v.upper()
+        if v_upper not in ORDER_STATES:
+            raise ValueError(f"Invalid state. Allowed: {ORDER_STATES}")
+        return v_upper
+
+    @field_validator("fulfillment_status")
+    @classmethod
+    def validate_fulfillment_status(cls, v: str) -> str:
+        v_upper = v.upper()
+        if v_upper not in FULFILLMENT_STATUS_CODES:
+            raise ValueError(f"Invalid fulfillment_status. Allowed: {FULFILLMENT_STATUS_CODES}")
+        return v_upper
+
+    @field_validator("fulfillment_type")
+    @classmethod
+    def validate_order_fulfillment_type(cls, v: str) -> str:
+        v_upper = v.upper()
+        if v_upper not in FULFILLMENT_TYPES:
+            raise ValueError(f"Invalid fulfillment_type. Allowed: {FULFILLMENT_TYPES}")
+        return v_upper
+
+
+class BecknOrderUpdate(BaseModel):
+    """Partial-update payload for an existing Beckn order."""
+
+    message_id: Optional[str] = None
+    worker_id: Optional[str] = None
+    item_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    state: Optional[str] = None
+    fulfillment_status: Optional[str] = None
+    fulfillment_type: Optional[str] = None
+    customer_person: Optional[dict[str, Any]] = None
+    customer_contact: Optional[dict[str, Any]] = None
+    billing: Optional[dict[str, Any]] = None
+    xinput_required: Optional[int] = None
+    xinput_submitted: Optional[int] = None
+    cancellation_reason: Optional[str] = None
+
+    @field_validator("state")
+    @classmethod
+    def validate_state(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v_upper = v.upper()
+        if v_upper not in ORDER_STATES:
+            raise ValueError(f"Invalid state. Allowed: {ORDER_STATES}")
+        return v_upper
+
+    @field_validator("fulfillment_status")
+    @classmethod
+    def validate_fulfillment_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v_upper = v.upper()
+        if v_upper not in FULFILLMENT_STATUS_CODES:
+            raise ValueError(f"Invalid fulfillment_status. Allowed: {FULFILLMENT_STATUS_CODES}")
+        return v_upper
+
+    @field_validator("fulfillment_type")
+    @classmethod
+    def validate_order_fulfillment_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v_upper = v.upper()
+        if v_upper not in FULFILLMENT_TYPES:
+            raise ValueError(f"Invalid fulfillment_type. Allowed: {FULFILLMENT_TYPES}")
+        return v_upper
+
+
+class BecknOrderOut(BaseModel):
+    """Response schema for a Beckn order."""
+
+    order_id: str
+    transaction_id: str
+    message_id: Optional[str] = None
+    bap_id: str
+    bap_uri: str
+    worker_id: Optional[str] = None
+    item_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    state: str
+    fulfillment_status: str
+    fulfillment_type: str
+    customer_person: Optional[dict[str, Any]] = None
+    customer_contact: Optional[dict[str, Any]] = None
+    billing: Optional[dict[str, Any]] = None
+    xinput_required: int
+    xinput_submitted: int
+    cancellation_reason: Optional[str] = None
+    created_ts: datetime
+    updated_ts: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class BecknOrderListResponse(BaseModel):
+    """Paginated list of Beckn orders."""
+
+    total: int
+    page: int
+    page_size: int
+    results: list[BecknOrderOut]
+
+
+# ─── XInputForm schemas ──────────────────────
+
+
+class XInputFormCreate(BaseModel):
+    """Payload for creating a new xInput form step."""
+
+    order_id: str = Field(..., max_length=36, examples=["order-uuid-here"])
+    transaction_id: str = Field(..., max_length=100, examples=["txn-abc-123"])
+    step_index: int = Field(0, ge=0, examples=[0])
+    heading: Optional[str] = Field(None, max_length=255, examples=["Personal Details"])
+    form_data: Optional[dict[str, Any]] = Field(None, description="Submitted form data")
+    submitted: int = Field(0, ge=0, le=1, description="0=pending, 1=submitted", examples=[0])
+
+
+class XInputFormUpdate(BaseModel):
+    """Partial-update payload for an xInput form step."""
+
+    step_index: Optional[int] = None
+    heading: Optional[str] = None
+    form_data: Optional[dict[str, Any]] = None
+    submitted: Optional[int] = Field(None, ge=0, le=1)
+
+
+class XInputFormOut(BaseModel):
+    """Response schema for an xInput form step."""
+
+    form_id: str
+    order_id: str
+    transaction_id: str
+    step_index: int
+    heading: Optional[str] = None
+    form_data: Optional[dict[str, Any]] = None
+    submitted: int
+    created_ts: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class XInputFormListResponse(BaseModel):
+    """Paginated list of xInput forms."""
+
+    total: int
+    page: int
+    page_size: int
+    results: list[XInputFormOut]

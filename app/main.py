@@ -15,6 +15,8 @@ from app.api.beckn_gateway import router as beckn_router
 from app.api.bpp import router as bpp_router
 from app.api.xinput import router as xinput_router
 from app.api.registry import router as registry_router, self_register
+from app.api.orders import router as orders_router
+from app.api.forms import router as forms_router
 from app.db.database import init_db
 from app.schedulers.verification_poller import verification_poller
 
@@ -65,6 +67,8 @@ app.include_router(beckn_router, prefix="/api")    # mock BAP gateway (on_* call
 app.include_router(bpp_router, prefix="/api")       # BPP endpoints (search, select, init, ...)
 app.include_router(xinput_router, prefix="/api")    # xInput form hosting
 app.include_router(registry_router, prefix="/api")  # mock registry
+app.include_router(orders_router, prefix="/api")     # beckn_order CRUD
+app.include_router(forms_router, prefix="/api")      # xinput_form CRUD
 
 
 # ── Health ──
