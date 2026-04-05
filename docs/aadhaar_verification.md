@@ -121,7 +121,7 @@ POST https://digilocker.meripehchaan.gov.in/public/oauth2/1/token
   "district": "WB"
 }
 ```
-*(name, dob, district come from our `worker_stage` table — in production, they'd come from DigiLocker's response)*
+*(name, dob, district come from our `worker` table — in production, they'd come from DigiLocker's response)*
 
 **What happens**:
 1. Looks up transaction — must be `"authorized"`
@@ -154,7 +154,7 @@ Returns XML with UIDAI-signed Aadhaar data (name, DOB, gender, address, photo).
 
 ## Data Storage
 
-After successful verification, the following is written to `worker_stage.verification_status` (JSON column):
+After successful verification, the following is written to `worker.verification_status` (JSON column):
 
 ```json
 {
@@ -190,7 +190,7 @@ After successful verification, the following is written to `worker_stage.verific
 | Standalone API | `app/api/aadhaar.py` | 4 REST endpoints for direct API usage |
 | Chat integration | `app/api/chat.py` → `answer_question()` | Special `aadhaar_verify` branch runs all 3 steps in one call |
 | Question config | `app/services/question_flow.py` | `aadhaar_verify` is first question in QUESTIONS list |
-| DB storage | `app/db/models.py` → `WorkerStage.verification_status` | JSON column stores verified flag + transaction ID |
+| DB storage | `app/db/models.py` → `Worker.verification_status` | JSON column stores verified flag + transaction ID |
 
 ---
 

@@ -68,7 +68,7 @@ from app.db.models import (
     FulfillmentStatusCode,
     FulfillmentType,
     OrderState,
-    WorkerStage,
+    Worker,
 )
 from app.services.beckn_callback import post_callback
 from app.services.order_service import (
@@ -120,8 +120,8 @@ def _make_callback_context(incoming: Context, action: str) -> dict:
     ).model_dump(mode="json", exclude_none=True)
 
 
-def _worker_to_item(w: WorkerStage) -> dict:
-    """Convert a WorkerStage row to a Beckn Item dict."""
+def _worker_to_item(w: Worker) -> dict:
+    """Convert a Worker row to a Beckn Item dict."""
     tags = []
 
     # listing-details tag group
@@ -178,7 +178,7 @@ def _worker_to_item(w: WorkerStage) -> dict:
     return item.model_dump(mode="json", exclude_none=True, by_alias=True)
 
 
-def _build_order_payload(order: BecknOrder, worker: WorkerStage | None = None) -> dict:
+def _build_order_payload(order: BecknOrder, worker: Worker | None = None) -> dict:
     """Build a Beckn Order dict from a DB order row."""
     fulfillment_state = FulfillmentState(
         descriptor=Descriptor(
@@ -255,9 +255,9 @@ def _build_order_payload(order: BecknOrder, worker: WorkerStage | None = None) -
 
 def _handle_search(context_dict: dict, body: SearchRequest, db: Session):
     """Background: build on_search catalog and POST to BAP."""
-    workers = db.query(WorkerStage).filter(
-        WorkerStage.status.in_(["active", "verified"]),
-        WorkerStage.availability_status.in_(["available", "partially_available"]),
+    workers = db.query(Worker).filter(
+        Worker.status.in_(["active", "verified"]),
+        Worker.availability_status.in_(["available", "partially_available"]),
     ).limit(50).all()
 
     # Apply intent filters if present
@@ -368,7 +368,7 @@ async def bpp_select(body: SelectRequest, bg: BackgroundTasks, db: Session = Dep
     # Check item exists
     if body.message.order.items:
         item_id = body.message.order.items[0].id
-        worker = db.query(WorkerStage).filter_by(worker_id=item_id).first()
+        worker = db.query(Worker).filter_by(worker_id=item_id).first()
         if not worker:
             return nack_response("30004", f"Item {item_id} not found")
 

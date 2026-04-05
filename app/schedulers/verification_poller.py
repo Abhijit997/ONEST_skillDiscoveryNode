@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.database import SessionLocal
-from app.db.models import WorkerStage, WorkerStatus
+from app.db.models import Worker, WorkerStatus
 
 log = logging.getLogger(__name__)
 
@@ -31,9 +31,9 @@ def _process_fully_verified_workers() -> int:
     db = SessionLocal()
     try:
         rows = (
-            db.query(WorkerStage)
+            db.query(Worker)
             .filter(
-                WorkerStage.status == WorkerStatus.ACTIVE,
+                Worker.status == WorkerStatus.ACTIVE,
             )
             .filter(
                 text(

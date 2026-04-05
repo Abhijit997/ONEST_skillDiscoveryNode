@@ -16,18 +16,18 @@ from sqlalchemy.orm import Session
 from app.api.schemas import (
     DeleteResponse,
     UpsertResponse,
-    WorkerStageCreate,
-    WorkerStageOut,
-    WorkerStageSearchResponse,
+    WorkerCreate,
+    WorkerOut,
+    WorkerSearchResponse,
 )
 from app.db.database import get_db
-from app.db.models import WorkerStage, WorkerStatus
+from app.db.models import Worker, WorkerStatus
 from app.services.geocode import geocode_pincode
 
 router = APIRouter(prefix="/workers", tags=["workers"])
 
 
-def _create_worker_record(payload: WorkerStageCreate) -> WorkerStage:
+def _create_worker_record(payload: WorkerCreate) -> Worker:
     """Map validated Pydantic model → ORM instance.
 
     If latitude/longitude or state are not supplied but area_code (PIN/ZIP)
@@ -48,7 +48,7 @@ def _create_worker_record(payload: WorkerStageCreate) -> WorkerStage:
             s_name = s_name or geo.state_name
             s_code = s_code or geo.state_code
 
-    return WorkerStage(
+    return Worker(
         name=payload.name,
         aadhar_hash=payload.aadhar_hash.lower(),  # normalise hex to lowercase
         district=payload.district,
@@ -102,48 +102,48 @@ def _apply_filters(
     updated_ts_from: Optional[datetime] = None,
     updated_ts_to: Optional[datetime] = None,
 ):
-    """Apply all optional filters to a WorkerStage query and return it."""
+    """Apply all optional filters to a Worker query and return it."""
     # Exact matches
     if worker_id:
-        q = q.filter(WorkerStage.worker_id == worker_id)
+        q = q.filter(Worker.worker_id == worker_id)
     if skill_category:
-        q = q.filter(WorkerStage.skill_category == skill_category.lower())
+        q = q.filter(Worker.skill_category == skill_category.lower())
     if iti_nsqf_level is not None:
-        q = q.filter(WorkerStage.iti_nsqf_level == iti_nsqf_level)
+        q = q.filter(Worker.iti_nsqf_level == iti_nsqf_level)
     if availability_status:
-        q = q.filter(WorkerStage.availability_status == availability_status.lower())
+        q = q.filter(Worker.availability_status == availability_status.lower())
     if preferred_shift:
-        q = q.filter(WorkerStage.preferred_shift == preferred_shift.lower())
+        q = q.filter(Worker.preferred_shift == preferred_shift.lower())
     if source_channel:
-        q = q.filter(WorkerStage.source_channel == source_channel.lower())
+        q = q.filter(Worker.source_channel == source_channel.lower())
     if status:
-        q = q.filter(WorkerStage.status == status.lower())
+        q = q.filter(Worker.status == status.lower())
 
     # Partial / LIKE matches (case-insensitive)
     if name:
-        q = q.filter(WorkerStage.name.ilike(f"%{name}%"))
+        q = q.filter(Worker.name.ilike(f"%{name}%"))
     if district:
-        q = q.filter(WorkerStage.district.ilike(f"%{district}%"))
+        q = q.filter(Worker.district.ilike(f"%{district}%"))
     if city_village:
-        q = q.filter(WorkerStage.city_village.ilike(f"%{city_village}%"))
+        q = q.filter(Worker.city_village.ilike(f"%{city_village}%"))
     if highest_qualification:
-        q = q.filter(WorkerStage.highest_qualification.ilike(f"%{highest_qualification}%"))
+        q = q.filter(Worker.highest_qualification.ilike(f"%{highest_qualification}%"))
     if phone:
-        q = q.filter(WorkerStage.phone.ilike(f"%{phone}%"))
+        q = q.filter(Worker.phone.ilike(f"%{phone}%"))
 
     # Range filters
     if experience_years_min is not None:
-        q = q.filter(WorkerStage.experience_years >= experience_years_min)
+        q = q.filter(Worker.experience_years >= experience_years_min)
     if experience_years_max is not None:
-        q = q.filter(WorkerStage.experience_years <= experience_years_max)
+        q = q.filter(Worker.experience_years <= experience_years_max)
     if created_ts_from:
-        q = q.filter(WorkerStage.created_ts >= created_ts_from)
+        q = q.filter(Worker.created_ts >= created_ts_from)
     if created_ts_to:
-        q = q.filter(WorkerStage.created_ts <= created_ts_to)
+        q = q.filter(Worker.created_ts <= created_ts_to)
     if updated_ts_from:
-        q = q.filter(WorkerStage.updated_ts >= updated_ts_from)
+        q = q.filter(Worker.updated_ts >= updated_ts_from)
     if updated_ts_to:
-        q = q.filter(WorkerStage.updated_ts <= updated_ts_to)
+        q = q.filter(Worker.updated_ts <= updated_ts_to)
 
     return q
 
@@ -153,8 +153,8 @@ def _apply_filters(
 
 @router.get(
     "/stage/search",
-    response_model=WorkerStageSearchResponse,
-    summary="Search worker_stage records",
+    response_model=WorkerSearchResponse,
+    summary="Search worker records",
     description=(
         "Flexible search with all-optional query parameters. "
         "All text filters are case-insensitive partial matches (LIKE). "
@@ -185,7 +185,7 @@ def search_workers(
     db: Session = Depends(get_db),
 ):
     q = _apply_filters(
-        db.query(WorkerStage),
+        db.query(Worker),
         worker_id=worker_id, name=name, district=district,
         city_village=city_village, skill_category=skill_category,
         iti_nsqf_level=iti_nsqf_level, highest_qualification=highest_qualification,
@@ -198,17 +198,17 @@ def search_workers(
 
     total = q.count()
     results = (
-        q.order_by(WorkerStage.created_ts.desc())
+        q.order_by(Worker.created_ts.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
 
-    return WorkerStageSearchResponse(
+    return WorkerSearchResponse(
         total=total,
         page=page,
         page_size=page_size,
-        results=[WorkerStageOut.model_validate(r) for r in results],
+        results=[WorkerOut.model_validate(r) for r in results],
     )
 
 
@@ -217,12 +217,12 @@ def search_workers(
 
 @router.post(
     "/stage",
-    response_model=WorkerStageOut,
+    response_model=WorkerOut,
     status_code=http_status.HTTP_201_CREATED,
-    summary="Insert a new worker_stage record",
+    summary="Insert a new worker record",
     description="Straight insert — does NOT perform dedup. Use /stage/upsert for dedup behaviour.",
 )
-def insert_worker(payload: WorkerStageCreate, db: Session = Depends(get_db)):
+def insert_worker(payload: WorkerCreate, db: Session = Depends(get_db)):
     record = _create_worker_record(payload)
     db.add(record)
     db.commit()
@@ -239,26 +239,26 @@ def insert_worker(payload: WorkerStageCreate, db: Session = Depends(get_db)):
     status_code=http_status.HTTP_201_CREATED,
     summary="Insert worker & mark previous duplicates",
     description=(
-        "Inserts a new worker_stage record. If any previous records share the same "
+        "Inserts a new worker record. If any previous records share the same "
         "aadhar_hash and have an ACTIVE status, their status is updated to 'old_duplicate'. "
         "Returns the new record and a count of how many duplicates were marked."
     ),
 )
-def upsert_worker(payload: WorkerStageCreate, db: Session = Depends(get_db)):
+def upsert_worker(payload: WorkerCreate, db: Session = Depends(get_db)):
     aadhar_normalised = payload.aadhar_hash.lower()
 
     # Mark existing active records for this aadhar_hash as old_duplicate
     now = datetime.now(timezone.utc)
     updated_count = (
-        db.query(WorkerStage)
+        db.query(Worker)
         .filter(
-            WorkerStage.aadhar_hash == aadhar_normalised,
-            WorkerStage.status != WorkerStatus.OLD_DUPLICATE,
+            Worker.aadhar_hash == aadhar_normalised,
+            Worker.status != WorkerStatus.OLD_DUPLICATE,
         )
         .update(
             {
-                WorkerStage.status: WorkerStatus.OLD_DUPLICATE,
-                WorkerStage.updated_ts: now,
+                Worker.status: WorkerStatus.OLD_DUPLICATE,
+                Worker.updated_ts: now,
             },
             synchronize_session="fetch",
         )
@@ -271,7 +271,7 @@ def upsert_worker(payload: WorkerStageCreate, db: Session = Depends(get_db)):
     db.refresh(record)
 
     return UpsertResponse(
-        worker=WorkerStageOut.model_validate(record),
+        worker=WorkerOut.model_validate(record),
         duplicates_marked=updated_count,
         is_new=(updated_count == 0),
     )
@@ -283,7 +283,7 @@ def upsert_worker(payload: WorkerStageCreate, db: Session = Depends(get_db)):
 @router.delete(
     "/stage",
     response_model=DeleteResponse,
-    summary="Delete worker_stage records by filter",
+    summary="Delete worker records by filter",
     description=(
         "Deletes records matching the same filters as the search endpoint. "
         "Defaults to dry_run=true (preview only). Set dry_run=false to actually delete. "
@@ -327,7 +327,7 @@ def delete_workers(
         )
 
     q = _apply_filters(
-        db.query(WorkerStage),
+        db.query(Worker),
         worker_id=worker_id, name=name, district=district,
         city_village=city_village, skill_category=skill_category,
         iti_nsqf_level=iti_nsqf_level, highest_qualification=highest_qualification,

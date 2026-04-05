@@ -105,9 +105,9 @@ class MockDigiLockerService:
             verified=True,
             name=name,
             dob=dob,
-            gender=None,        # could add to worker_stage later
+            gender=None,        # could add to worker table later
             district=district,
-            state=None,         # could add to worker_stage later
-            pincode=None,       # could add to worker_stage later
+            state=None,         # could add to worker table later
+            pincode=None,       # could add to worker table later
             photo_base64=None,  # placeholder
         )

@@ -1,5 +1,5 @@
 """
-Pydantic request / response schemas for the worker_stage, beckn_order,
+Pydantic request / response schemas for the worker, beckn_order,
 and xinput_form APIs.
 """
 
@@ -36,8 +36,8 @@ FULFILLMENT_TYPES = ["REMOTE", "HYBRID", "ONSITE"]
 # ── Request schemas ───────────────────────────
 
 
-class WorkerStageCreate(BaseModel):
-    """Payload for inserting a new worker_stage record."""
+class WorkerCreate(BaseModel):
+    """Payload for inserting a new worker record."""
 
     name: str = Field(..., min_length=1, max_length=255, examples=["Ramesh Kumar"])
     dob: Optional[date] = Field(None, description="Date of birth (YYYY-MM-DD)", examples=["1990-01-15"])
@@ -147,7 +147,7 @@ class WorkerStageCreate(BaseModel):
 # ── Response schemas ──────────────────────────
 
 
-class WorkerStageOut(BaseModel):
+class WorkerOut(BaseModel):
     """Response schema returned after insert / upsert."""
 
     worker_id: str
@@ -192,20 +192,20 @@ class WorkerStageOut(BaseModel):
 class UpsertResponse(BaseModel):
     """Response for the upsert endpoint — includes dedup info."""
 
-    worker: WorkerStageOut
+    worker: WorkerOut
     duplicates_marked: int = Field(
         0, description="Number of previous records marked as old_duplicate"
     )
     is_new: bool = Field(True, description="True if no prior record existed for this aadhar_hash")
 
 
-class WorkerStageSearchResponse(BaseModel):
+class WorkerSearchResponse(BaseModel):
     """Paginated search response."""
 
     total: int = Field(..., description="Total matching records")
     page: int
     page_size: int
-    results: list[WorkerStageOut]
+    results: list[WorkerOut]
 
 
 class DeleteResponse(BaseModel):

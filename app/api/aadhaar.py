@@ -17,7 +17,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from datetime import datetime, timezone
 
 from app.db.database import get_db
-from app.db.models import WorkerStage
+from app.db.models import Worker
 from app.services.aadhaar_service import MockDigiLockerService
 
 
@@ -78,8 +78,8 @@ class AadhaarStatusResponse(BaseModel):
 # ── Helpers ──
 
 
-def _get_worker_or_404(worker_id: str, db: Session) -> WorkerStage:
-    worker = db.query(WorkerStage).filter(WorkerStage.worker_id == worker_id).first()
+def _get_worker_or_404(worker_id: str, db: Session) -> Worker:
+    worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
     if not worker:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Worker not found")
     return worker

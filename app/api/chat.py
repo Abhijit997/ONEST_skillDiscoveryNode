@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.database import get_db
-from app.db.models import WorkerStage, WorkerStatus
+from app.db.models import Worker, WorkerStatus
 from app.services.question_flow import get_next_question, is_valid_answer
 from app.services.aadhaar_service import MockDigiLockerService
 
@@ -100,8 +100,8 @@ class MarkVerifiedResponse(BaseModel):
 # ── Helpers ───────────────────────────────────
 
 
-def _get_worker_or_404(worker_id: str, db: Session) -> WorkerStage:
-    worker = db.query(WorkerStage).filter(WorkerStage.worker_id == worker_id).first()
+def _get_worker_or_404(worker_id: str, db: Session) -> Worker:
+    worker = db.query(Worker).filter(Worker.worker_id == worker_id).first()
     if not worker:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Worker not found")
     return worker
@@ -123,7 +123,7 @@ def _build_next_question(verification: dict) -> NextQuestionInfo:
     )
 
 
-def _save_verification(worker: WorkerStage, verification: dict, db: Session):
+def _save_verification(worker: Worker, verification: dict, db: Session):
     """Write verification_status, flag mutation, commit once."""
     worker.verification_status = verification
     worker.updated_ts = datetime.now(timezone.utc)
@@ -142,18 +142,18 @@ def _save_verification(worker: WorkerStage, verification: dict, db: Session):
 )
 def list_pending_workers(db: Session = Depends(get_db)):
     rows = (
-        db.query(WorkerStage)
+        db.query(Worker)
         .filter(
-            WorkerStage.status == WorkerStatus.ACTIVE,
-            WorkerStage.phone.isnot(None),
-            WorkerStage.phone != "",
+            Worker.status == WorkerStatus.ACTIVE,
+            Worker.phone.isnot(None),
+            Worker.phone != "",
         )
         .filter(
             text(
                 "COALESCE(json_extract(verification_status, '$.phone_verified'), 0) NOT IN (1, 'true')"
             )
         )
-        .order_by(WorkerStage.created_ts.desc())
+        .order_by(Worker.created_ts.desc())
         .all()
     )
     workers = [

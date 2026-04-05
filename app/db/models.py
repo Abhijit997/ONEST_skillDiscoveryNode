@@ -1,5 +1,5 @@
 """
-SQLAlchemy ORM models for the worker_stage table and Beckn protocol tables.
+SQLAlchemy ORM models for the worker table and Beckn protocol tables.
 """
 
 import enum
@@ -108,8 +108,8 @@ def _generate_uuid() -> str:
     return str(uuid.uuid4())
 
 
-class WorkerStage(Base):
-    __tablename__ = "worker_stage"
+class Worker(Base):
+    __tablename__ = "worker"
 
     worker_id = Column(String(36), primary_key=True, default=_generate_uuid)
     name = Column(String(255), nullable=False)
@@ -180,11 +180,11 @@ class WorkerStage(Base):
 
     # Composite index for dedup queries
     __table_args__ = (
-        Index("ix_worker_stage_aadhar_status", "aadhar_hash", "status"),
+        Index("ix_worker_aadhar_status", "aadhar_hash", "status"),
     )
 
     def __repr__(self) -> str:
-        return f"<WorkerStage {self.worker_id} name={self.name!r} status={self.status}>"
+        return f"<Worker {self.worker_id} name={self.name!r} status={self.status}>"
 
 
 # ── Beckn Order tracking ─────────────────────
@@ -203,7 +203,7 @@ class BecknOrder(Base):
     bap_uri = Column(String(500), nullable=False)
 
     # Worker / item being applied for
-    worker_id = Column(String(36), ForeignKey("worker_stage.worker_id"), nullable=True)
+    worker_id = Column(String(36), ForeignKey("worker.worker_id"), nullable=True)
     item_id = Column(String(255), nullable=True)
     provider_id = Column(String(255), nullable=True)
 

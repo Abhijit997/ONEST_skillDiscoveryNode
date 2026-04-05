@@ -150,7 +150,7 @@ All endpoints accept a Beckn-standard JSON body with `context` + `message` and r
 
 ### Search Behavior
 
-- Queries `worker_stage` table for workers with status `active` or `verified` and availability `available` or `partially_available`
+- Queries `worker` table for workers with status `active` or `verified` and availability `available` or `partially_available`
 - Limits to 50 results
 - If `intent.descriptor.name` is provided, filters by name or skill category (case-insensitive)
 - Builds a Beckn Catalog with a single Provider containing all matching Items
@@ -284,7 +284,7 @@ At startup, the BPP self-registers in the mock registry via `self_register()` so
 
 ### Tables
 
-#### `worker_stage`
+#### `worker`
 
 Core worker/job-seeker records. Includes both original platform fields and Beckn-required attributes.
 
@@ -328,7 +328,7 @@ Tracks the Beckn transaction lifecycle from select through confirm/cancel.
 | `transaction_id` | String(100) | Unique, indexed — ties all actions together |
 | `message_id` | String(100) | Last message ID |
 | `bap_id` / `bap_uri` | String | BAP identity & callback URL |
-| `worker_id` | String(36) FK | Links to `worker_stage` |
+| `worker_id` | String(36) FK | Links to `worker` |
 | `item_id` / `provider_id` | String | Beckn item & provider IDs |
 | `state` | Enum | DRAFT → ACTIVE → COMPLETE / CANCELLED |
 | `fulfillment_status` | Enum | See [Fulfillment State Machine](#fulfillment-state-machine) |
@@ -678,7 +678,7 @@ app/
 │   └── schemas.py           # Worker Pydantic request/response schemas
 ├── db/
 │   ├── database.py          # SQLite engine + session factory
-│   └── models.py            # ORM models — worker_stage, beckn_order, xinput_form
+│   └── models.py            # ORM models — worker, beckn_order, xinput_form
 ├── services/
 │   ├── auth.py              # ed25519 signing/verification + middleware
 │   ├── beckn_callback.py    # HTTP callback poster (on_* → BAP)
