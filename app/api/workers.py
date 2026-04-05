@@ -152,7 +152,7 @@ def _apply_filters(
 
 
 @router.get(
-    "/stage/search",
+    "",
     response_model=WorkerSearchResponse,
     summary="Search worker records",
     description=(
@@ -216,11 +216,11 @@ def search_workers(
 
 
 @router.post(
-    "/stage",
+    "",
     response_model=WorkerOut,
     status_code=http_status.HTTP_201_CREATED,
     summary="Insert a new worker record",
-    description="Straight insert — does NOT perform dedup. Use /stage/upsert for dedup behaviour.",
+    description="Straight insert — does NOT perform dedup. Use /upsert for dedup behaviour.",
 )
 def insert_worker(payload: WorkerCreate, db: Session = Depends(get_db)):
     record = _create_worker_record(payload)
@@ -234,7 +234,7 @@ def insert_worker(payload: WorkerCreate, db: Session = Depends(get_db)):
 
 
 @router.post(
-    "/stage/upsert",
+    "/upsert",
     response_model=UpsertResponse,
     status_code=http_status.HTTP_201_CREATED,
     summary="Insert worker & mark previous duplicates",
@@ -281,7 +281,7 @@ def upsert_worker(payload: WorkerCreate, db: Session = Depends(get_db)):
 
 
 @router.delete(
-    "/stage",
+    "",
     response_model=DeleteResponse,
     summary="Delete worker records by filter",
     description=(
