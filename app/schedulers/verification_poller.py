@@ -17,6 +17,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.database import SessionLocal
 from app.db.models import Worker, WorkerStatus
+from app.services.emb_worker_service import insert_worker_embedding_from_sqlite
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +59,12 @@ def _process_fully_verified_workers() -> int:
             vs["onest_discoverable"] = True
             vs["verified_ts"] = datetime.now(timezone.utc).isoformat()
             worker.verification_status = vs
+            # Embed worker in ChromaDB
+            try:
+                insert_worker_embedding_from_sqlite(db, worker.worker_id)
+                log.info("EMBEDDED | worker_id=%s | name=%s into ChromaDB", worker.worker_id, worker.name)
+            except Exception:
+                log.exception("Failed to embed worker_id=%s in ChromaDB", worker.worker_id)
             flag_modified(worker, "verification_status")
 
             count += 1

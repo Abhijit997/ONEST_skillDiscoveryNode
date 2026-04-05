@@ -43,10 +43,9 @@
                             │                   │
                      ┌──────▼──────┐     ┌──────▼──────┐
                      │  SQLite DB  │     │  data/keys/ │
-                     │  worker_    │     │  ed25519    │
-                     │  stage      │     │  keypair    │
-                     │  beckn_     │     └─────────────┘
-                     │  order      │
+                     │  worker     │     │  ed25519    │
+                     │  beckn_     │     │  keypair    │
+                     │  order      │     └─────────────┘
                      │  xinput_    │
                      │  form       │
                      └─────────────┘
@@ -595,7 +594,7 @@ python run.py
 curl http://127.0.0.1:8000/health
 
 # 2. Create a worker
-curl -X POST http://127.0.0.1:8000/api/workers/stage \
+curl -X POST http://127.0.0.1:8000/api/workers \
   -H "Content-Type: application/json" \
   -d '{"name":"Raju","aadhar_hash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","district":"Bengaluru","skill_category":"plumbing","phone":"+919876543210","source_channel":"api"}'
 

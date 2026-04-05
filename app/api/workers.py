@@ -1,9 +1,9 @@
 """
-Worker Stage API routes.
+Worker API routes.
 
-GET  /workers/stage/search   — search / filter workers
-POST /workers/stage          — plain insert
-POST /workers/stage/upsert   — insert + mark previous duplicates as old_duplicate
+GET  /workers          — search / filter workers
+POST /workers          — plain insert
+POST /workers/upsert   — insert + mark previous duplicates as old_duplicate
 """
 
 from datetime import datetime, timezone

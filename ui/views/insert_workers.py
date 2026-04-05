@@ -319,7 +319,7 @@ def render():
                     "source_channel": source_channel,
                 })
 
-                endpoint = "/workers/stage/upsert" if use_upsert else "/workers/stage"
+                endpoint = "/workers/upsert" if use_upsert else "/workers"
 
                 try:
                     resp = requests.post(f"{API_BASE}{endpoint}", json=payload, timeout=10)
@@ -360,4 +360,4 @@ def render():
 
         if uploaded_file is not None:
             st.warning("⚠️ File uploaded but processing is not yet implemented. Stay tuned!")
-            # TODO: Parse CSV/Excel, validate columns, call /stage or /stage/upsert in batch
+            # TODO: Parse CSV/Excel, validate columns, call /workers or /workers/upsert in batch

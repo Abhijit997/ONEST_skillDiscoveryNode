@@ -1,6 +1,8 @@
 """
 Pydantic request / response schemas for the worker, beckn_order,
-and xinput_form APIs.
+and xinput_form APIs. 
+Also has Pydantic request / response schema for emb_worker API, 
+which is used to embed worker records into ChromaDB and search them.
 """
 
 from datetime import date, datetime
@@ -402,3 +404,28 @@ class XInputFormListResponse(BaseModel):
     page: int
     page_size: int
     results: list[XInputFormOut]
+
+# ── ChromaDB emb_worker schemas ─────────────────────
+
+class EmbWorkerMetadata(BaseModel):
+    name: str
+    gender: Optional[str] = None
+    district: str
+    city_village: Optional[str] = None
+    state_code: Optional[str] = None
+    area_code: Optional[str] = None
+    skill_category: str
+    highest_qualification: Optional[str] = None
+    availability_status: Optional[str] = None
+    preferred_shift: Optional[str] = None
+    fulfillment_type: Optional[str] = None
+    experience_years: Optional[float] = None
+
+class EmbWorkerOut(BaseModel):
+    worker_id: str
+    text: str
+    metadata: EmbWorkerMetadata
+    distance: Optional[float] = None
+
+class EmbWorkerListResponse(BaseModel):
+    results: list[EmbWorkerOut]

@@ -83,16 +83,16 @@ Complete status lifecycle for a worker record in the `worker` table, from ingest
 
 | Channel | Endpoint / Method | Notes |
 |---------|-------------------|-------|
-| CSV upload | `POST /api/workers/stage` or `/stage/upsert` | Bulk import |
-| Telegram bot | `POST /api/workers/stage/upsert` | Conversational onboarding |
-| Chat simulator | `POST /api/workers/stage/upsert` | Testing/demo |
-| Direct API | `POST /api/workers/stage` | Third-party integration |
-| Manual | `POST /api/workers/stage` | Admin entry |
+| CSV upload | `POST /api/workers` or `/upsert` | Bulk import |
+| Telegram bot | `POST /api/workers/upsert` | Conversational onboarding |
+| Chat simulator | `POST /api/workers/upsert` | Testing/demo |
+| Direct API | `POST /api/workers` | Third-party integration |
+| Manual | `POST /api/workers` | Admin entry |
 
 **What happens:**
 - Worker record created with `status = active`
 - `verification_status = {}` (empty JSON)
-- If using `/stage/upsert` and a previous record exists with the same `aadhar_hash`, the old record(s) are marked `old_duplicate` (see step 6)
+- If using `/upsert` and a previous record exists with the same `aadhar_hash`, the old record(s) are marked `old_duplicate` (see step 6)
 - Geocoding auto-fills lat/lon, state_name, state_code from PIN code if not provided
 
 **File:** `app/api/workers.py` → `_create_worker_record()`, `insert_worker()`, `upsert_worker()`
@@ -195,7 +195,7 @@ Both `active` and `verified` workers are returned. The catalog does not distingu
 
 ### 6. Duplicate Handling → `OLD_DUPLICATE`
 
-**Trigger:** New record inserted via `/stage/upsert` with an `aadhar_hash` that already exists.
+**Trigger:** New record inserted via `/upsert` with an `aadhar_hash` that already exists.
 
 **What happens:**
 - All existing records with the same `aadhar_hash` (except those already `old_duplicate`) get:

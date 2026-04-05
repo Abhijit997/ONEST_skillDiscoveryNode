@@ -17,6 +17,7 @@ from app.api.xinput import router as xinput_router
 from app.api.registry import router as registry_router, self_register
 from app.api.orders import router as orders_router
 from app.api.forms import router as forms_router
+from app.api.emb_workers import router as emb_workers_router
 from app.db.database import init_db
 from app.schedulers.verification_poller import verification_poller
 
@@ -69,6 +70,9 @@ app.include_router(xinput_router, prefix="/api")    # xInput form hosting
 app.include_router(registry_router, prefix="/api")  # mock registry
 app.include_router(orders_router, prefix="/api")     # beckn_order CRUD
 app.include_router(forms_router, prefix="/api")      # xinput_form CRUD
+
+# Register emb_worker vector DB CRUD/search API
+app.include_router(emb_workers_router, prefix="/api")
 
 
 # ── Health ──
